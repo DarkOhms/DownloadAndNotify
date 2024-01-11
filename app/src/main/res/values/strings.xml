@@ -1,7 +1,12 @@
 <resources>
-    <string name="app_name">DownloadAndNotify</string>
+    <string name="app_name">Download and Notify</string>
+    <string name="details_activity_label">Details Activity</string>
     <string name="glide_button_text">Glide - Image Loading Library by BumpTech</string>
     <string name="loadapp_button_text">LoadApp - Current repository by Udacity</string>
     <string name="retrofit_button_text">Retrofit - Type-safe HTTP client for Android and Java by Square, Inc</string>
     <string name="app_description">This application downloads a file, animates a custom view progress bar and sends a notification.</string>
+    <string name="download_notification_channel_id" translatable="false">download_channel</string>
+    <string name="download_notification_channel_name" translatable="true">Download</string>
+    <string name="file_tag_text">File name:</string>
+    <string name="status_tag_text">Status:</string>
 </resources>

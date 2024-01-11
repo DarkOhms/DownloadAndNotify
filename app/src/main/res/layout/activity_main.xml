@@ -18,69 +18,72 @@
             android:id="@+id/downloadImage"
             android:layout_width="match_parent"
             android:layout_height="0dp"
+            android:background="@color/design_default_color_primary_variant"
+            android:contentDescription="download icon"
             app:layout_constraintHeight_percent="0.2"
-            app:srcCompat="@drawable/baseline_cloud_download_24"
-            app:layout_constraintTop_toTopOf="parent"/>
+            app:layout_constraintTop_toTopOf="parent"
+            app:srcCompat="@drawable/baseline_cloud_download_24" />
 
         <RadioGroup
+            android:id="@+id/buttonGroup"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:id="@+id/buttonGroup"
-            app:layout_constraintTop_toBottomOf="@id/downloadImage"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
             android:layout_marginStart="@dimen/medium_margin"
             android:layout_marginTop="@dimen/medium_margin"
             android:layout_marginEnd="@dimen/medium_margin"
             android:layout_marginBottom="@dimen/medium_margin"
-            >
+            app:layout_constraintBottom_toTopOf="@id/downloadButtonView"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/downloadImage">
 
             <RadioButton
                 android:id="@+id/glide_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/glide_button_text"
                 android:layout_marginStart="@dimen/medium_margin"
                 android:layout_marginEnd="@dimen/medium_margin"
-                app:layout_constraintTop_toTopOf="parent"
+                android:text="@string/glide_button_text"
+                app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"/>
+                app:layout_constraintTop_toTopOf="parent" />
 
             <RadioButton
                 android:id="@+id/loadApp_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/loadapp_button_text"
                 android:layout_marginStart="@dimen/medium_margin"
                 android:layout_marginEnd="@dimen/medium_margin"
+                android:text="@string/loadapp_button_text"
                 app:layout_constraintBaseline_toBaselineOf="@id/glide_button"
-                app:layout_constraintTop_toBottomOf="@id/glide_button"
+                app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"/>
+                app:layout_constraintTop_toBottomOf="@id/glide_button" />
 
             <RadioButton
                 android:id="@+id/retrofit_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/retrofit_button_text"
                 android:layout_marginStart="@dimen/medium_margin"
                 android:layout_marginEnd="@dimen/medium_margin"
+                android:text="@string/retrofit_button_text"
                 app:layout_constraintBaseline_toBaselineOf="@id/glide_button"
-                app:layout_constraintTop_toBottomOf="@id/loadApp_button"
-                app:layout_constraintEnd_toEndOf="parent"/>
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/loadApp_button" />
 
         </RadioGroup>
 
 
         <com.example.downloadandnotify.DownloadButtonView
+            android:id="@+id/downloadButtonView"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            app:layout_constraintTop_toBottomOf="@id/buttonGroup"
+            android:layout_margin="16dp"
             app:layout_constraintBottom_toBottomOf="parent"
-            android:id="@+id/downloadButtonView"
+            app:layout_constraintHeight_percent="0.15"
             app:viewModel="@{viewModel}"
-            tools:context=".YourActivity" />
+            tools:context=".MainActivity"
+            tools:layout_editor_absoluteX="16dp" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </layout>

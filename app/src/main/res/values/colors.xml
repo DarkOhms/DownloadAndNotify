@@ -2,4 +2,7 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="progressColor">#050505</color>
+    <color name="buttonColor">#22aebc</color>
+    <color name="circleColor">#ffa93a</color>
 </resources>

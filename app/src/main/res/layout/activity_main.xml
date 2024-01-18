@@ -79,6 +79,8 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_margin="16dp"
+            app:circleColor="@color/circleColor"
+            app:progressColor="@color/progressColor"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintHeight_percent="0.15"
             app:viewModel="@{viewModel}"

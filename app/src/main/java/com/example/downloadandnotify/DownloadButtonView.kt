@@ -21,6 +21,9 @@ I will change colors and text but leave progress animation for phase 2.
 1/5/2024
 I have decided to make the circle animate continuously for the duration of the download and animate
 from right to left based on the download's progress.
+
+1/14/24
+Converted two paint colors to custom attrs.
  */
 class DownloadButtonView @JvmOverloads constructor(
     context: Context,
@@ -32,7 +35,8 @@ class DownloadButtonView @JvmOverloads constructor(
     var progress: Float = 0f
     var animationProgress: Float = 0f
     var isDownloading: Boolean = false
-    val RADIUS_OFFSET = 70
+    val RADIUS_OFFSET: Int
+        get() = height/4
 
     private var initialButtonColor: Int = ContextCompat.getColor(this.context, R.color.buttonColor)
     private val buttonPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -72,7 +76,16 @@ class DownloadButtonView @JvmOverloads constructor(
         buttonPaint.color = initialButtonColor
         textPaint.color = Color.WHITE
         textPaint.textSize = 50f
-        circlePaint.color = Color.rgb(221,169,70)
+
+        //custom attributes
+        val typedArray = context.obtainStyledAttributes(attrs, R.styleable.DownloadButtonView)
+        val circleColor = typedArray.getColor(R.styleable.DownloadButtonView_circleColor, Color.YELLOW)
+        circlePaint.color =circleColor
+        val leftColor = typedArray.getColor(R.styleable.DownloadButtonView_progressColor, Color.BLACK)
+        progressPaint.color = leftColor
+        typedArray.recycle()
+        //
+
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -82,10 +95,8 @@ class DownloadButtonView @JvmOverloads constructor(
         // Draw button
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), buttonPaint)
 
-        // Draw changing color from right to left
-        val leftColor = ContextCompat.getColor(this.context, R.color.progressColor)
+        // Draw changing color from left to right
         if(isDownloading) {
-            progressPaint.color = leftColor
             canvas.drawRect(0f, 0f, (width.toFloat() * progress), height.toFloat(), progressPaint)
         }
 
@@ -98,6 +109,13 @@ class DownloadButtonView @JvmOverloads constructor(
 
         // Draw download circle
         if(isDownloading) {
+            //for configuration changes
+            if(!downloadAnimator.isRunning){
+                Log.d("AnimatorCheck", "NOT running")
+                downloadAnimator.start()
+            }else{
+                Log.d("AnimatorCheck", "running " + "height is " + height.toString())
+            }
             val circleRadius = height / 2f - RADIUS_OFFSET
             val circleX = textX + textWidth + circleRadius
             val circleY = height / 2f

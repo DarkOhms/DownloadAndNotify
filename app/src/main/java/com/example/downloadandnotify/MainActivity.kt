@@ -5,16 +5,21 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.IntentFilter
 import android.graphics.Color
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.databinding.DataBindingUtil
-import androidx.lifecycle.Observer
+import android.Manifest
+import android.app.AlertDialog
+import android.content.Context
+import android.content.pm.PackageManager
 import com.example.downloadandnotify.databinding.ActivityMainBinding
 import com.example.downloadandnotify.utils.DownloadBroadcastReceiver
 import com.example.downloadandnotify.utils.DownloadURL
@@ -33,11 +38,11 @@ starter code and used some snippets to start my download logic.
 
 isDownloading -> MainActivity -> ViewModel -> CustomView
 progress -> MainActivity -> ViewModel -> CustomView
-stopAnimation -> MainActivity -> ViewModel -> CustomView
  */
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var myCustomButton: DownloadButtonView
+    private lateinit var requestPermissionLauncher: ActivityResultLauncher<String>
     private val mainViewModel : DownloadViewModel by viewModels()
     private val downloadUtil = DownloadUtil()
     var downloadID: Long = 0
@@ -48,13 +53,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        //create the notification channel
-        createChannel(
-            getString(R.string.download_notification_channel_id),
-            getString(R.string.download_notification_channel_name)
-        )
-        //create intent filter and register receiver
-        registerReceiver(downloadReceiver, filter)
+        //creates chanel and broadcast receiver based on api level
+        notificationApiLogic()
 
         binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
         binding.viewModel = mainViewModel
@@ -69,91 +69,132 @@ class MainActivity : AppCompatActivity() {
             binding.downloadButtonView.updateProgress(progress)
         }
 
-    binding.buttonGroup.setOnCheckedChangeListener { _, selectedOption ->
-        Log.d("Button selected", selectedOption.toString())
-        when (selectedOption) {
-            R.id.glide_button -> {
-                mainViewModel.setButtonSelection(DownloadURL.GLIDE)
+        binding.buttonGroup.setOnCheckedChangeListener { _, selectedOption ->
+            Log.d("Button selected", selectedOption.toString())
+            when (selectedOption) {
+                R.id.glide_button -> {
+                    mainViewModel.setButtonSelection(DownloadURL.GLIDE)
+                }
+                R.id.loadApp_button -> {
+                    mainViewModel.setButtonSelection(DownloadURL.LOADAPP)
+                }
+                R.id.retrofit_button -> {
+                    mainViewModel.setButtonSelection(DownloadURL.RETROFIT)
+                }
             }
-            R.id.loadApp_button -> {
-                mainViewModel.setButtonSelection(DownloadURL.LOADAPP)
-            }
-            R.id.retrofit_button -> {
-                mainViewModel.setButtonSelection(DownloadURL.RETROFIT)
+        }
+        binding.downloadButtonView.setOnTouchListener{ view, _ ->
+            //check for selection
+            if(mainViewModel.buttonSelectionURL == null){
+                Toast.makeText(this, "Please select a download option.", Toast.LENGTH_SHORT).show()
+                return@setOnTouchListener true
+            }else {
+                //we already did a null check
+                if(!myCustomButton.isDownloading){
+                    //only if we aren't downloading already, we will start a custom download
+                    val selection: DownloadURL = mainViewModel.buttonSelectionURL!!
+                    Log.d("URL selection", selection.url.toString())
+                    downloadID = downloadUtil.createRequest(selection,this)
+                    trackProgress(downloadID)
+                    view.performClick()
+                }else{
+                    Toast.makeText(this, "Download not finished.", Toast.LENGTH_SHORT)
+                    return@setOnTouchListener false
+                }
+
             }
         }
     }
-    binding.downloadButtonView.setOnTouchListener{ view, _ ->
-        //check for selection
-        if(mainViewModel.buttonSelectionURL == null){
-            Toast.makeText(this, "Please select a download option.", Toast.LENGTH_SHORT).show()
-            return@setOnTouchListener true
-        }else {
-            //we already did a null check
-            if(!myCustomButton.isDownloading){
-                //only if we aren't downloading already, we will start a custom download
-                val selection: DownloadURL = mainViewModel.buttonSelectionURL!!
-                Log.d("URL selection", selection.url.toString())
-                downloadID = downloadUtil.createRequest(selection,this)
-                trackProgress(downloadID)
-                view.performClick()
-            }else{
-                Toast.makeText(this, "Download not finished.", Toast.LENGTH_SHORT)
-                return@setOnTouchListener false
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterReceiver(downloadReceiver)
+    }
+    private fun notificationApiLogic(){
+        if (Build.VERSION.SDK_INT == Build.VERSION_CODES.TIRAMISU) {
+            val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
+                if (isGranted) {
+                    // Permission granted, proceed with feature
+                    Log.d("requestPermissionLauncher",  "PERMISSION GRANTED")
+                   notificationStartup()
+                } else {
+                    // Handle permission denial
+                    if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.POST_NOTIFICATIONS)) {
+                        AlertDialog.Builder(this) // Replace "this" with the appropriate context
+                            .setTitle("Notification Permission Required")
+                            .setMessage("This app needs access to post notifications. Would you like to grant this permission?")
+                            .setPositiveButton("Yes") { _, _ ->
+                                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            }
+                            .setNegativeButton("Not Now") { dialog, _ ->
+                                // Handle permission denial gracefully
+                                dialog.dismiss()
+                            }
+                            .create()
+                            .show()
+                    } else {
+                        requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                    Log.d("requestPermissionLauncher",  "PERMISSION DENIED")
+                }
             }
 
+        } else {
+            notificationStartup()
         }
     }
-}
-
-override fun onDestroy() {
-    super.onDestroy()
-    unregisterReceiver(downloadReceiver)
-}
-private fun createChannel(channelId: String, channelName: String) {
-
-if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
-    val notificationChannel = NotificationChannel(
-        channelId,
-        channelName,
-        NotificationManager.IMPORTANCE_HIGH
-    ).apply {
-        setShowBadge(false)
+    private fun notificationStartup(){
+        //create the notification channel
+        createChannel(
+            getString(R.string.download_notification_channel_id),
+            getString(R.string.download_notification_channel_name)
+        )
+        //create intent filter and register receiver
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(downloadReceiver, filter, RECEIVER_EXPORTED)
+        }else{
+            registerReceiver(downloadReceiver, filter)
+        }
     }
-    notificationChannel.enableLights(true)
-    notificationChannel.lightColor = Color.RED
-    notificationChannel.enableVibration(true)
-    notificationChannel.description = "Download Status"
 
-    val notificationManager = getSystemService(NotificationManager::class.java)
+    private fun createChannel(channelId: String, channelName: String) {
 
-    notificationManager.createNotificationChannel(notificationChannel)
-    Log.d("Create Channel", "Creation called")
-}
+        val permissionStatusInt = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+        val permissionStatusString = if(permissionStatusInt == PackageManager.PERMISSION_GRANTED) "PERMISSION_GRANTED" else "PERMISSION_DENIED"
+        Log.d("Create Channel", permissionStatusString)
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
+            val notificationChannel = NotificationChannel(
+                channelId,
+                channelName,
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                setShowBadge(false)
+            }
+            notificationChannel.enableLights(true)
+            notificationChannel.lightColor = Color.RED
+            notificationChannel.enableVibration(true)
+            notificationChannel.description = "Download Status"
 
-}
+            val notificationManager = getSystemService(NotificationManager::class.java)
 
-fun sendDownloadNotification(fileName:String, downloadStatus:String){
-Log.d("MainActivity", "send notification called")
-val notificationManager = ContextCompat.getSystemService(
-    this,
-    NotificationManager::class.java
-) as NotificationManager
-notificationManager.sendNotification(fileName, downloadStatus, this)
-}
-
-fun updateProgress(progress: Int){
-    if(progress == 100){
-        myCustomButton.downloadComplete()
-    }else{
-        val progressFloat = progress.toFloat()/100.0F
-        mainViewModel.setProgress(progressFloat)
-        Log.d("UpdateProgress", progressFloat.toString())
-
+            notificationManager.createNotificationChannel(notificationChannel)
+            Log.d("Create Channel", "Creation called")
+        }
 
     }
-    Log.d("Main Activity", "Progress is " + progress.toString())
-}
+
+    fun updateProgress(progress: Int){
+        if(progress == 100){
+            myCustomButton.downloadComplete()
+        }else{
+            val progressFloat = progress.toFloat()/100.0F
+            mainViewModel.setProgress(progressFloat)
+            Log.d("UpdateProgress", progressFloat.toString())
+
+
+        }
+        Log.d("Main Activity", "Progress is " + progress.toString())
+    }
 
 /*
 trackProgress uses coroutines to poll the download service every 300 milliseconds
@@ -166,11 +207,13 @@ in the viewModel without overly taxing the system resources and locking up the U
         // using query method
         var finishDownload = false
         var progress: Int
+        var paused: Int = 0
 
         while (!finishDownload) {
-            delay(300)
+            delay(500)
             val cursor = downloadManager.query(DownloadManager.Query().setFilterById(downloadID))
             if (cursor.moveToFirst()) {
+                val fileName = cursor.getString(cursor.getColumnIndex(DownloadManager.COLUMN_TITLE))
                 val status = cursor.getInt(cursor.getColumnIndex(DownloadManager.COLUMN_STATUS))
                 when (status) {
                     DownloadManager.STATUS_FAILED -> {
@@ -178,9 +221,29 @@ in the viewModel without overly taxing the system resources and locking up the U
                         withContext(Dispatchers.Main){ mainViewModel.setDownloading(false)}
                     }
 
-                    DownloadManager.STATUS_PAUSED -> {Log.d("TrackProgress", "STATUS_ PAUSED")}
+                    //will cancel the download if paused for too long without resuming
+                    DownloadManager.STATUS_PAUSED -> {
+                        paused +=1
+                        if(paused == 30){
+                            downloadManager.remove(downloadID)
+                            finishDownload = true
+                            withContext(Dispatchers.Main){ mainViewModel.setDownloading(false)}
+
+                            val notificationManager = ContextCompat.getSystemService(
+                                this@MainActivity,
+                                NotificationManager::class.java
+                            ) as NotificationManager
+                            notificationManager.sendNotification(fileName, "Failed" ,this@MainActivity)
+
+                        }
+                        Log.d("TrackProgress", "STATUS_ PAUSED for " + paused.toString() + " count")
+                    }
                     DownloadManager.STATUS_PENDING -> {Log.d("TrackProgress", "STATUS_ PENDING")}
                     DownloadManager.STATUS_RUNNING -> {
+                        //this gives the download a chance if it starts running again intermittently
+                        if(paused > 0){
+                            paused -=1
+                        }
                         Log.d("TrackProgress", "Status Running")
                         val total =
                             cursor.getLong(cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
@@ -206,6 +269,8 @@ in the viewModel without overly taxing the system resources and locking up the U
                     }
                 }
             }
+            if(finishDownload) cursor.close()
         }
+
     }
 }

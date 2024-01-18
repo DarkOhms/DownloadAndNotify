@@ -2,11 +2,13 @@ package com.example.downloadandnotify.utils
 
 import android.annotation.SuppressLint
 import android.app.DownloadManager
+import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Context.DOWNLOAD_SERVICE
 import android.content.Intent
 import android.util.Log
+import androidx.core.content.ContextCompat
 import androidx.core.content.ContextCompat.getString
 import androidx.core.net.toUri
 import com.example.downloadandnotify.MainActivity
@@ -31,7 +33,12 @@ class DownloadUtil {
                 .setAllowedOverRoaming(true)
 
         val downloadManager = context.getSystemService(DOWNLOAD_SERVICE) as DownloadManager
-        return downloadManager.enqueue(request)
+        val downloadID = downloadManager.enqueue(request)
+        val preferences = context.getSharedPreferences("my_app_prefs", Context.MODE_PRIVATE)
+        preferences.edit()
+            .putLong("download_id", downloadID)
+            .apply()
+        return downloadID
   }
 
 }
@@ -49,11 +56,12 @@ class DownloadBroadcastReceiver: BroadcastReceiver(){
 
         val downloadId = intent?.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
 
-        val mainActivity = context as MainActivity
+        val storedDownloadId = context.getSharedPreferences("my_app_prefs", Context.MODE_PRIVATE)
+            .getLong("download_id", -1L)
 
         var progress = 0
 
-        if (downloadId == mainActivity.downloadID) {
+        if (downloadId == storedDownloadId) {
             val query = DownloadManager.Query().setFilterById(downloadId)
             val cursor = downloadManager.query(query)
             Log.d("DownloadReceiver", "STATUS_RUNNING")
@@ -68,14 +76,16 @@ class DownloadBroadcastReceiver: BroadcastReceiver(){
                             status = "Successful"
                             progress = 100
                             Log.d("DownloadReceiver", "STATUS_SUCCESSFUL")
-                            mainActivity.sendDownloadNotification(fileName, status)
+                            sendDownloadNotification(fileName, status, context)
+                            cursor.close()
                         }
 
                         DownloadManager.STATUS_FAILED -> {
                             status = "Failed"
                             progress = 0
                             Log.d("DownloadReceiver", "STATUS_FAILED")
-                            mainActivity.sendDownloadNotification(fileName, status)
+                            sendDownloadNotification(fileName, status, context)
+                            cursor.close()
                         }
 
                         else -> {
@@ -89,10 +99,19 @@ class DownloadBroadcastReceiver: BroadcastReceiver(){
                     }
 
                     cursor.close()
-                    Log.d("DownloadReciever", "updateProgress() called")
-                    mainActivity.updateProgress(progress)
+                    Log.d("DownloadReceiver", "updateProgress() called")
 
                 }
             }
         }
+
+    private fun sendDownloadNotification(fileName:String, downloadStatus:String, context: Context) {
+        Log.d("DownloadReceiver", "send notification called")
+        val notificationManager = ContextCompat.getSystemService(
+            context,
+            NotificationManager::class.java
+        ) as NotificationManager
+        notificationManager.sendNotification(fileName, downloadStatus, context)
     }
+
+}

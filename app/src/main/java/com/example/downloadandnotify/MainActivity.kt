@@ -47,6 +47,7 @@ class MainActivity : AppCompatActivity() {
     private val downloadUtil = DownloadUtil()
     var downloadID: Long = 0
     val downloadReceiver = DownloadBroadcastReceiver()
+    var registered = false
     val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
 
 
@@ -108,18 +109,48 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        unregisterReceiver(downloadReceiver)
+        if(registered) {
+            unregisterReceiver(downloadReceiver)
+        }
     }
-    private fun notificationApiLogic(){
-        if (Build.VERSION.SDK_INT == Build.VERSION_CODES.TIRAMISU) {
-            val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
-                if (isGranted) {
-                    // Permission granted, proceed with feature
-                    Log.d("requestPermissionLauncher",  "PERMISSION GRANTED")
-                   notificationStartup()
-                } else {
-                    // Handle permission denial
-                    if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.POST_NOTIFICATIONS)) {
+    private fun notificationApiLogic() {
+        //check version to see if request is necessary
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            //check for prior permission
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                notificationStartup()
+                Log.d("notificationApiLogic", "PERMISSION GRANTED")
+            } else {//make permission request
+                val requestPermissionLauncher =
+                    registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
+                        if (isGranted) {
+                            // Permission granted, proceed with feature
+                            notificationStartup()
+                            Log.d("requestPermissionLauncher", "PERMISSION GRANTED")
+                        } else {
+                            // Handle permission denial
+                            Log.d("requestPermissionLauncher", "PERMISSION DENIED")
+                        }
+                    }
+                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                //if request granted start notification and receiver creation
+                if (ContextCompat.checkSelfPermission(
+                        this,
+                        Manifest.permission.POST_NOTIFICATIONS
+                    ) == PackageManager.PERMISSION_GRANTED
+                ) {
+                    Log.d("notificationApiLogic", "PERMISSION GRANTED")
+                    notificationStartup()
+                } else {//if denied, show rationale
+                    if (ActivityCompat.shouldShowRequestPermissionRationale(
+                            this,
+                            Manifest.permission.POST_NOTIFICATIONS
+                        )
+                    ) {
                         AlertDialog.Builder(this) // Replace "this" with the appropriate context
                             .setTitle("Notification Permission Required")
                             .setMessage("This app needs access to post notifications. Would you like to grant this permission?")
@@ -132,36 +163,36 @@ class MainActivity : AppCompatActivity() {
                             }
                             .create()
                             .show()
-                    } else {
-                        requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     }
-                    Log.d("requestPermissionLauncher",  "PERMISSION DENIED")
                 }
             }
-
         } else {
+            //start notifications for api < 33
             notificationStartup()
         }
     }
     private fun notificationStartup(){
-        //create the notification channel
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(downloadReceiver, filter, RECEIVER_EXPORTED)
+            Log.d("Reciever", "created for api31+")
+
+        }else{
+            registerReceiver(downloadReceiver, filter)
+            Log.d("Reciever", "created for lower apis")
+
+        }
+
+        registered = true
         createChannel(
             getString(R.string.download_notification_channel_id),
             getString(R.string.download_notification_channel_name)
         )
-        //create intent filter and register receiver
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(downloadReceiver, filter, RECEIVER_EXPORTED)
-        }else{
-            registerReceiver(downloadReceiver, filter)
-        }
     }
+
 
     private fun createChannel(channelId: String, channelName: String) {
 
-        val permissionStatusInt = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-        val permissionStatusString = if(permissionStatusInt == PackageManager.PERMISSION_GRANTED) "PERMISSION_GRANTED" else "PERMISSION_DENIED"
-        Log.d("Create Channel", permissionStatusString)
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
             val notificationChannel = NotificationChannel(
                 channelId,
@@ -218,6 +249,7 @@ in the viewModel without overly taxing the system resources and locking up the U
                 when (status) {
                     DownloadManager.STATUS_FAILED -> {
                         finishDownload = true
+                        cursor.close()
                         withContext(Dispatchers.Main){ mainViewModel.setDownloading(false)}
                     }
 
@@ -227,6 +259,7 @@ in the viewModel without overly taxing the system resources and locking up the U
                         if(paused == 30){
                             downloadManager.remove(downloadID)
                             finishDownload = true
+                            cursor.close()
                             withContext(Dispatchers.Main){ mainViewModel.setDownloading(false)}
 
                             val notificationManager = ContextCompat.getSystemService(
@@ -263,6 +296,7 @@ in the viewModel without overly taxing the system resources and locking up the U
                         withContext(Dispatchers.Main){
                             updateProgress(progress)
                             finishDownload = true
+                            cursor.close()
                             Toast.makeText(this@MainActivity, "Download Completed", Toast.LENGTH_SHORT)
                             .show()
                         }

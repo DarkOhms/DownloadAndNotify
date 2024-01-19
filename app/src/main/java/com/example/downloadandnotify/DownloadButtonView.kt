@@ -91,7 +91,7 @@ class DownloadButtonView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        Log.d("OnDraw", "onDrawCalled isDownloading = " + isDownloading.toString())
+        //Log.d("OnDraw", "onDrawCalled isDownloading = " + isDownloading.toString())
         // Draw button
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), buttonPaint)
 
@@ -111,10 +111,10 @@ class DownloadButtonView @JvmOverloads constructor(
         if(isDownloading) {
             //for configuration changes
             if(!downloadAnimator.isRunning){
-                Log.d("AnimatorCheck", "NOT running")
+               // Log.d("AnimatorCheck", "NOT running")
                 downloadAnimator.start()
             }else{
-                Log.d("AnimatorCheck", "running " + "height is " + height.toString())
+               // Log.d("AnimatorCheck", "running " + "height is " + height.toString())
             }
             val circleRadius = height / 2f - RADIUS_OFFSET
             val circleX = textX + textWidth + circleRadius
